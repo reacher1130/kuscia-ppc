@@ -1,0 +1,17 @@
+apiVersion: kuscia.secretflow/v1alpha1
+kind: AppImage
+metadata:
+  annotations:
+    kuscia.secretflow/component-spec: '{"component.1.description":"ss-xgb","component.1.input.1.categories":"dataset","component.1.input.1.description":"train data","component.1.input.1.name":"train_data","component.1.name":"ss_xgb","component.1.output.1.categories":"dataset","component.1.output.1.description":"train data","component.1.output.1.name":"train_data"}'
+  name: ic-ss-xgb
+spec:
+  deployTemplates:
+  - name: ic-ss-xgb
+    replicas: 1
+    spec:
+      containers:
+      - name: ic-ss-xgb
+        workingDir: /app
+  image:
+    name: secretflow-registry.cn-hangzhou.cr.aliyuncs.com/secretflow/ss-xgb
+    tag: "latest"

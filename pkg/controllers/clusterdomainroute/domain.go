@@ -22,6 +22,7 @@ import (
 	"encoding/base64"
 	"encoding/pem"
 	"fmt"
+	"strings"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -114,8 +115,12 @@ func (c *controller) syncServiceToken(ctx context.Context, cdr *kusciaapisv1alph
 	syncFun := func() (bool, error) {
 		key := common.AuthorizationHeaderName
 
-		if cdr.Spec.RequestHeadersToAdd != nil && cdr.Spec.RequestHeadersToAdd[key] != "" {
-			return false, nil
+		// Only skip when an actual token has already been injected. Replace placeholder
+		// tokens such as "Bearer {{.TOKEN}}" that were set by deployment templates.
+		if cdr.Spec.RequestHeadersToAdd != nil {
+			if v := cdr.Spec.RequestHeadersToAdd[key]; v != "" && !strings.Contains(v, "{{") {
+				return false, nil
+			}
 		}
 
 		ownerRef := metav1.NewControllerRef(domain, kusciaapisv1alpha1.SchemeGroupVersion.WithKind("Domain"))
@@ -152,12 +157,11 @@ func (c *controller) syncServiceToken(ctx context.Context, cdr *kusciaapisv1alph
 		return true, nil
 	}
 
-	if domain.Spec.Role == kusciaapisv1alpha1.Partner &&
-		len(domain.Spec.InterConnProtocols) > 0 &&
-		domain.Spec.InterConnProtocols[0] == kusciaapisv1alpha1.InterConnKuscia {
-		if domain.Spec.MasterDomain == domain.Name || domain.Spec.MasterDomain == "" {
-			return syncFun()
-		}
+	// Inject Authorization token for all Kuscia interconnection routes, regardless of
+	// whether the source domain is a partner. This fixes P2P deployments where the local
+	// domain is not marked as partner but still needs a valid token to reach the peer.
+	if cdr.Spec.InterConnProtocol == kusciaapisv1alpha1.InterConnKuscia {
+		return syncFun()
 	}
 
 	return false, nil

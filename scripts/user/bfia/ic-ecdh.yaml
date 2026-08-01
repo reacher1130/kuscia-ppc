@@ -6,12 +6,13 @@ metadata:
   name: ic-ecdh
 spec:
   deployTemplates:
-  - name: ss-lr
+  - name: ic-ecdh
     replicas: 1
     spec:
       containers:
-      - name: ss-lr
-        workingDir: /work
+      - name: ic-ecdh
+        workingDir: /app
   image:
+    # 官方 morse-ecdh-header（= ecdh-psi 改名），不本地 build/import
     name: secretflow-registry.cn-hangzhou.cr.aliyuncs.com/secretflow/morse-ecdh-header
     tag: "20251113"

@@ -1,0 +1,17 @@
+apiVersion: kuscia.secretflow/v1alpha1
+kind: AppImage
+metadata:
+  annotations:
+    kuscia.secretflow/component-spec: '{"component.1.description":"ecdh-psi","component.1.input.1.categories":"dataset","component.1.input.1.description":"train data","component.1.input.1.name":"train_data","component.1.name":"ecdh_psi","component.1.output.1.categories":"dataset","component.1.output.1.description":"train data","component.1.output.1.name":"train_data","component.1.output.2.categories":"report","component.1.output.2.description":"summary","component.1.output.2.name":"summary"}'
+  name: ic-ecdh-psi
+spec:
+  deployTemplates:
+  - name: ic-ecdh-psi
+    replicas: 1
+    spec:
+      containers:
+      - name: ic-ecdh-psi
+        workingDir: /app
+  image:
+    name: secretflow-registry.cn-hangzhou.cr.aliyuncs.com/secretflow/morse-ecdh-header
+    tag: "20251113"

@@ -1,0 +1,19 @@
+apiVersion: kuscia.secretflow/v1alpha1
+kind: KusciaJob
+metadata:
+  name: job-ss-compare
+  namespace: cross-domain
+  labels:
+    "kuscia.secretflow/interconn-protocol-type": "bfia"
+spec:
+  initiator: alice
+  tasks:
+    - alias: ss_compare_1
+      appImage: ic-ss-compare
+      parties:
+        - domainID: alice
+          role: host
+        - domainID: bob
+          role: guest
+      taskInputConfig: '{"name":"ss_compare_1","module_name":"ss_compare","output":[{"type":"dataset","key":"result"}],"role":{"host":["alice"],"guest":["bob"]},"initiator":{"role":"host","node_id":"alice"},"task_params":{"host":{"0":{"name":"perfect_logit_a.csv","namespace":"data"}},"guest":{"0":{"name":"perfect_logit_b.csv","namespace":"data"}},"common":{"algo":"ss_compare","protocol_families":"ss","protocol":"semi2k","field":64,"fxp_bits":18,"trunc_mode":"probabilistic","shard_serialize_format":"raw","use_ttp":false,"result_to_rank":-1,"compare_column_idx":0,"compare_column_idx_b":11,"compare_op":0,"skip_rows":1,"start_transport":false}}}'
+      tolerable: false

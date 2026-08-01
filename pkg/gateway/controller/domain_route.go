@@ -377,6 +377,10 @@ func (c *DomainRouteController) updateDomainRoute(dr *kusciaapisv1alpha1.DomainR
 				return err
 			}
 			c.drCache.Store(key, dr)
+			// Mark BFIA route as authorized so that ClusterDomainRoute becomes Ready.
+			if err := c.markBFIADomainRouteReady(dr); err != nil {
+				nlog.Warnf("Mark BFIA DomainRoute %s ready failed: %v", key, err)
+			}
 			return nil
 		}
 		return nil
@@ -390,6 +394,26 @@ func (c *DomainRouteController) updateDomainRoute(dr *kusciaapisv1alpha1.DomainR
 
 	// update effective instances
 	return c.checkAndUpdateTokenInstances(dr)
+}
+
+func (c *DomainRouteController) markBFIADomainRouteReady(dr *kusciaapisv1alpha1.DomainRoute) error {
+	if dr.Status.IsDestinationAuthorized && len(dr.Status.TokenStatus.Tokens) > 0 {
+		return nil
+	}
+	drCopy := dr.DeepCopy()
+	now := metav1.Now()
+	drCopy.Status.IsDestinationAuthorized = true
+	drCopy.Status.IsDestinationUnreachable = false
+	drCopy.Status.TokenStatus.Tokens = []kusciaapisv1alpha1.DomainRouteToken{
+		{
+			IsReady:      true,
+			Token:        "bfia-noop",
+			Revision:     1,
+			RevisionTime: now,
+		},
+	}
+	_, err := c.kusciaClient.KusciaV1alpha1().DomainRoutes(dr.Namespace).UpdateStatus(context.Background(), drCopy, metav1.UpdateOptions{})
+	return err
 }
 
 func (c *DomainRouteController) deleteDomainRoute(key string) error {

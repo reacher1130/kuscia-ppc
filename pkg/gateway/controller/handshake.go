@@ -674,6 +674,15 @@ func (c *DomainRouteController) parseTokenRSA(dr *kusciaapisv1alpha1.DomainRoute
 		return tokens, nil
 	}
 
+	// BFIA protocol does not rely on Kuscia token authentication, so skip
+	// decryption and public-key validation for BFIA DomainRoutes.
+	if dr.Spec.InterConnProtocol == kusciaapisv1alpha1.InterConnBFIA {
+		for _, token := range dr.Status.TokenStatus.Tokens {
+			tokens = append(tokens, &Token{Token: token.Token, Version: token.Revision})
+		}
+		return tokens, nil
+	}
+
 	if (c.gateway.Namespace == dr.Spec.Source && dr.Spec.TokenConfig.SourcePublicKey != c.gateway.Status.PublicKey) ||
 		(c.gateway.Namespace == dr.Spec.Destination && dr.Spec.TokenConfig.DestinationPublicKey != c.gateway.Status.PublicKey) {
 		err := fmt.Errorf("DomainRoute %s mismatch public key", key)

@@ -102,7 +102,10 @@ func (c *controller) hasCreatedInteropConfig(configName string) (bool, error) {
 
 func (c *controller) needCreateInteropConfig(cdr *kusciaapisv1alpha1.ClusterDomainRoute,
 	sourceRole, destRole kusciaapisv1alpha1.DomainRole) (bool, error) {
-	if sourceRole == kusciaapisv1alpha1.Partner || destRole != kusciaapisv1alpha1.Partner {
+	// InteropConfig is only needed when the destination is a partner domain.
+	// In P2P mode both the source and the destination are partners, so the old
+	// sourceRole == Partner guard prevented InteropConfig creation on both sides.
+	if destRole != kusciaapisv1alpha1.Partner {
 		return false, nil
 	}
 	domain, err := c.kusciaClient.KusciaV1alpha1().Domains().Get(c.ctx, cdr.Spec.Destination, metav1.GetOptions{})

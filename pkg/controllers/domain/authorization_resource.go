@@ -66,7 +66,14 @@ func (c *Controller) handleP2pKusciaPartnerMaster(domain *kusciaapisv1alpha1.Dom
 
 	// create domainRoute if necessary
 	if domain.Spec.AuthCenter != nil {
+		// Inbound route: peer -> local, used by the peer to reach this node.
 		if err := c.createClusterDomainRoute(ns, saName, domain, ownerRef); err != nil {
+			return err
+		}
+		// Outbound route: local -> peer, used by this node to reach the peer.
+		// The clusterdomainroute controller will sync TokenConfig/public keys and
+		// create the corresponding DomainRoute in the local namespace.
+		if err := c.createOutboundClusterDomainRoute(ns, saName, domain, ownerRef); err != nil {
 			return err
 		}
 	}
@@ -195,6 +202,41 @@ func (c *Controller) createClusterDomainRoute(ns, saName string, domain *kusciaa
 		return err
 	}
 	nlog.Infof("Create clusterDomainRoute [%s] success", cdr.Name)
+	return nil
+}
+
+// Create outbound clusterDomainRoute local -> peer. For P2P deployments this lets
+// the clusterdomainroute controller create a managed DomainRoute in the local
+// namespace with proper TokenConfig/public keys.
+func (c *Controller) createOutboundClusterDomainRoute(ns, saName string, domain *kusciaapisv1alpha1.Domain, ownerRef *metav1.OwnerReference) error {
+	authCenter := domain.Spec.AuthCenter
+	src := c.Namespace
+	dest := domain.Name
+
+	cdr := &kusciaapisv1alpha1.ClusterDomainRoute{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            fmt.Sprintf("%s-%s", src, dest),
+			OwnerReferences: []metav1.OwnerReference{*ownerRef},
+		},
+		Spec: kusciaapisv1alpha1.ClusterDomainRouteSpec{
+			DomainRouteSpec: kusciaapisv1alpha1.DomainRouteSpec{
+				Source:             src,
+				Destination:        dest,
+				InterConnProtocol:  getInterConnProtocol(domain),
+				AuthenticationType: authCenter.AuthenticationType,
+				TokenConfig: &kusciaapisv1alpha1.TokenConfig{
+					TokenGenMethod:      authCenter.TokenGenMethod,
+					RollingUpdatePeriod: defaultRollingSeconds,
+				},
+			},
+		},
+	}
+
+	if _, err := c.kusciaClient.KusciaV1alpha1().ClusterDomainRoutes().Create(c.ctx, cdr, metav1.CreateOptions{}); err != nil && !errors.IsAlreadyExists(err) {
+		nlog.Errorf("Create outbound clusterDomainRoute [%s] error: %v", cdr.Name, err.Error())
+		return err
+	}
+	nlog.Infof("Create outbound clusterDomainRoute [%s] success", cdr.Name)
 	return nil
 }
 

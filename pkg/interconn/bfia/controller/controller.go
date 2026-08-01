@@ -17,7 +17,9 @@ package controller
 import (
 	"context"
 	"fmt"
+	"os"
 	"reflect"
+	"strings"
 	"time"
 
 	gochache "github.com/patrickmn/go-cache"
@@ -315,6 +317,14 @@ func getCacheKeyName(reqType requestType, resourceType resourceType, name string
 }
 
 func buildHostFor(domainID string) string {
+	// Allow overriding the BFIA interconn scheduler address per domain via
+	// environment variables, e.g. BFIA_SCHEDULER_BOB=192.168.117.3:8084.
+	// This is required for single-host container deployments where Kubernetes
+	// DNS is unavailable.
+	envKey := "BFIA_SCHEDULER_" + strings.ToUpper(domainID)
+	if override := os.Getenv(envKey); override != "" {
+		return override
+	}
 	return fmt.Sprintf(interconnSchedulerSvc, domainID)
 }
 

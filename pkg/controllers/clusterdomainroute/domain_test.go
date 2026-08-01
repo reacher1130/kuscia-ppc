@@ -68,19 +68,47 @@ func TestController_syncServiceToken(t *testing.T) {
 		},
 		{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: "bob-alice",
+				Name: "alice-bob-kuscia",
 			},
 			Spec: kusciav1alpha1.ClusterDomainRouteSpec{
 				DomainRouteSpec: kusciav1alpha1.DomainRouteSpec{
-					Source:      "bob",
-					Destination: "alice",
+					Source:            "alice",
+					Destination:       "bob",
+					InterConnProtocol: kusciav1alpha1.InterConnKuscia,
+				},
+			},
+		},
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "bob-alice-kuscia",
+			},
+			Spec: kusciav1alpha1.ClusterDomainRouteSpec{
+				DomainRouteSpec: kusciav1alpha1.DomainRouteSpec{
+					Source:            "bob",
+					Destination:       "alice",
+					InterConnProtocol: kusciav1alpha1.InterConnKuscia,
+				},
+			},
+		},
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "bob-alice-placeholder",
+			},
+			Spec: kusciav1alpha1.ClusterDomainRouteSpec{
+				DomainRouteSpec: kusciav1alpha1.DomainRouteSpec{
+					Source:            "bob",
+					Destination:       "alice",
+					InterConnProtocol: kusciav1alpha1.InterConnKuscia,
+					RequestHeadersToAdd: map[string]string{
+						common.AuthorizationHeaderName: "Bearer {{.TOKEN}}",
+					},
 				},
 			},
 		},
 	}
 
 	kubeClient := kubefake.NewSimpleClientset()
-	kusciaClient := kusciafake.NewSimpleClientset(domains[0], domains[1], cdrs[0], cdrs[1])
+	kusciaClient := kusciafake.NewSimpleClientset(domains[0], domains[1], cdrs[0], cdrs[1], cdrs[2], cdrs[3])
 
 	curDir, err := os.Getwd()
 	assert.NoError(t, err)
@@ -94,26 +122,54 @@ func TestController_syncServiceToken(t *testing.T) {
 	c.kusciaInformerFactory.Start(c.ctx.Done())
 	cache.WaitForCacheSync(c.ctx.Done(), c.domainListerSynced)
 
+	// 1. Non-Kuscia routes should not get a token.
 	hasUpdate, err := c.syncServiceToken(c.ctx, cdrs[0])
 	assert.NoError(t, err)
-	assert.False(t, false)
+	assert.False(t, hasUpdate)
 
+	// 2. Kuscia routes need a ServiceAccount token; with no reactor it fails.
 	hasUpdate, err = c.syncServiceToken(c.ctx, cdrs[1])
 	assert.ErrorContains(t, err, "serviceaccounts \"\" not found")
 	assert.False(t, hasUpdate)
 
+	hasUpdate, err = c.syncServiceToken(c.ctx, cdrs[2])
+	assert.ErrorContains(t, err, "serviceaccounts \"\" not found")
+	assert.False(t, hasUpdate)
+
+	// 3. Provide fake tokens.
 	kubeClient.Fake.PrependReactor("create", "serviceaccounts/token", func(action kubetesting.Action) (handled bool, ret runtime.Object, err error) {
 		return true, &authenticationv1.TokenRequest{Status: authenticationv1.TokenRequestStatus{Token: "abc"}}, nil
 	})
+
+	// 4. Both local (non-partner) source and partner source routes should get tokens.
 	hasUpdate, err = c.syncServiceToken(c.ctx, cdrs[1])
 	assert.NoError(t, err)
 	assert.True(t, hasUpdate)
 
-	cdr, err := kusciaClient.KusciaV1alpha1().ClusterDomainRoutes().Get(c.ctx, "bob-alice", metav1.GetOptions{})
+	cdr, err := kusciaClient.KusciaV1alpha1().ClusterDomainRoutes().Get(c.ctx, "alice-bob-kuscia", metav1.GetOptions{})
 	assert.NoError(t, err)
 	assert.Equal(t, 1, len(cdr.Spec.RequestHeadersToAdd))
 	assert.Equal(t, "Bearer abc", cdr.Spec.RequestHeadersToAdd[common.AuthorizationHeaderName])
 
+	hasUpdate, err = c.syncServiceToken(c.ctx, cdrs[2])
+	assert.NoError(t, err)
+	assert.True(t, hasUpdate)
+
+	cdr, err = kusciaClient.KusciaV1alpha1().ClusterDomainRoutes().Get(c.ctx, "bob-alice-kuscia", metav1.GetOptions{})
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(cdr.Spec.RequestHeadersToAdd))
+	assert.Equal(t, "Bearer abc", cdr.Spec.RequestHeadersToAdd[common.AuthorizationHeaderName])
+
+	// 5. Placeholder tokens should be replaced.
+	hasUpdate, err = c.syncServiceToken(c.ctx, cdrs[3])
+	assert.NoError(t, err)
+	assert.True(t, hasUpdate)
+
+	cdr, err = kusciaClient.KusciaV1alpha1().ClusterDomainRoutes().Get(c.ctx, "bob-alice-placeholder", metav1.GetOptions{})
+	assert.NoError(t, err)
+	assert.Equal(t, "Bearer abc", cdr.Spec.RequestHeadersToAdd[common.AuthorizationHeaderName])
+
+	// 6. Idempotent: second call should not update.
 	hasUpdate, err = c.syncServiceToken(c.ctx, cdr)
 	assert.NoError(t, err)
 	assert.False(t, hasUpdate)

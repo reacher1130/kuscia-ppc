@@ -1,0 +1,17 @@
+apiVersion: kuscia.secretflow/v1alpha1
+kind: AppImage
+metadata:
+  annotations:
+    kuscia.secretflow/component-spec: '{"component.1.description":"ss-compare","component.1.input.1.categories":"dataset","component.1.input.1.description":"train data","component.1.input.1.name":"train_data","component.1.name":"ss_compare","component.1.output.1.categories":"dataset","component.1.output.1.description":"train data","component.1.output.1.name":"train_data"}'
+  name: ic-ss-compare
+spec:
+  deployTemplates:
+  - name: ic-ss-compare
+    replicas: 1
+    spec:
+      containers:
+      - name: ic-ss-compare
+        workingDir: /app
+  image:
+    name: secretflow-registry.cn-hangzhou.cr.aliyuncs.com/secretflow/ss-compare
+    tag: "latest"

@@ -286,8 +286,11 @@ func (c *controller) syncHandler(ctx context.Context, key string) error {
 
 	var srcdr, destdr *kusciaapisv1alpha1.DomainRoute
 	drName := fmt.Sprintf("%s-%s", cdr.Spec.Source, cdr.Spec.Destination)
-	if sourceRole != kusciaapisv1alpha1.Partner {
-		// Create domainroute in source namespace
+	// In P2P mode both endpoints are partners, yet each node still needs the
+	// DomainRoute in its own namespace for outbound/inbound Envoy config. Sync
+	// the DomainRoute when the local namespace matches source or destination.
+	if sourceRole != kusciaapisv1alpha1.Partner || cdr.Spec.Source == c.Namespace {
+		// Create or update domainroute in source namespace
 		if hasUpdate, checkErr := c.checkDomainRoute(ctx, cdr, cdr.Spec.Source, drName); checkErr != nil || hasUpdate {
 			return checkErr
 		}
@@ -296,8 +299,8 @@ func (c *controller) syncHandler(ctx context.Context, key string) error {
 		}
 	}
 
-	if destRole != kusciaapisv1alpha1.Partner {
-		// Create domainroute in destination namespace
+	if destRole != kusciaapisv1alpha1.Partner || cdr.Spec.Destination == c.Namespace {
+		// Create or update domainroute in destination namespace
 		if hasUpdate, checkErr := c.checkDomainRoute(ctx, cdr, cdr.Spec.Destination, drName); checkErr != nil || hasUpdate {
 			return checkErr
 		}

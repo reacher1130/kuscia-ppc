@@ -44,7 +44,7 @@ function log_error() {
 }
 
 if [[ ${KUSCIA_IMAGE} == "" ]]; then
-  KUSCIA_IMAGE=secretflow-registry.cn-hangzhou.cr.aliyuncs.com/secretflow/kuscia:latest
+  KUSCIA_IMAGE=secretflow-registry.cn-hangzhou.cr.aliyuncs.com/secretflow/kuscia:1.2.0b0
 fi
 
 if [[ "$SECRETFLOW_IMAGE" == "" ]]; then
