@@ -44,10 +44,14 @@ const (
 	envConfigTaskID                    = "config.task_id"
 	envConfigInstIDFormat              = "config.inst_id.%s.%d"
 	envConfigNodeIDFormat              = "config.node_id.%s.%d"
+	envConfigNodeIPFormat              = "config.node_ip.%s.%d"
 	envConfigSelfRole                  = "config.self_role"
 	envConfigSessionID                 = "config.session_id"
 	envConfigTraceID                   = "config.trace_id"
 	envConfigToken                     = "config.token"
+	envSystemTransport                 = "system.transport"
+	envSystemStorage                   = "system.storage"
+	envSystemStorageHostURL            = "system.storage.host.url"
 	envRuntimeComponentName            = "runtime.component.name"
 	envRuntimeComponentParameterFormat = "runtime.component.parameter.%s"
 	envRuntimeComponentInputFormat     = "runtime.component.input.%s"
@@ -176,6 +180,21 @@ func (c *Controller) injectPartyTaskEnv(party *kusciaapisv1alpha1.PartyInfo, tas
 			Name:  envRuntimeComponentName,
 			Value: taskInputConfig.ModuleName,
 		},
+		// BFIA uses the black-box interconnection path when these values are
+		// present.  Without them ic_main falls back to the white-box defaults
+		// (127.0.0.1:9530/9531), which cannot connect two Kuscia domains.
+		{
+			Name:  envSystemTransport,
+			Value: fmt.Sprintf("transport.%s.svc", party.DomainID),
+		},
+		{
+			Name:  envSystemStorage,
+			Value: "file:///home/kuscia/var/storage",
+		},
+		{
+			Name:  envSystemStorageHostURL,
+			Value: "file:///home/kuscia/var/storage",
+		},
 	}
 
 	envs = append(envs, makeIDEnv(party.DomainID, roleHost, taskInputConfig.Role.Host)...)
@@ -255,7 +274,12 @@ func makeIDEnv(domainID, role string, parties []string) []corev1.EnvVar {
 			Value: partyID,
 		}
 
-		envs = append(envs, instID, nodeID)
+		nodeIP := corev1.EnvVar{
+			Name:  fmt.Sprintf(envConfigNodeIPFormat, role, i),
+			Value: fmt.Sprintf("interconn-scheduler.%s.svc", partyID),
+		}
+
+		envs = append(envs, instID, nodeID, nodeIP)
 	}
 	return envs
 }

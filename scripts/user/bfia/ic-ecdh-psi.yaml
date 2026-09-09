@@ -13,5 +13,6 @@ spec:
       - name: ic-ecdh-psi
         workingDir: /app
   image:
-    name: secretflow-registry.cn-hangzhou.cr.aliyuncs.com/secretflow/morse-ecdh-header
-    tag: "20251113"
+    # 本地 C++ slim 运行时；旧 morse-ecdh-header 仅保留给历史任务。
+    name: secretflow-registry.cn-hangzhou.cr.aliyuncs.com/secretflow/ecdh-psi
+    tag: "latest"
