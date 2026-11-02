@@ -188,6 +188,13 @@ func (c *controller) syncHandler(ctx context.Context, key string) error {
 		return nil
 	}
 
+	// BFIA uses gateway readiness, not Kuscia token rotation. Its synthetic
+	// readiness token has no expiry; pruning it makes the gateway recreate it
+	// immediately and causes an endless status-update loop.
+	if dr.Spec.InterConnProtocol == kusciaapisv1alpha1.InterConnBFIA {
+		return nil
+	}
+
 	if dr.Spec.AuthenticationType == kusciaapisv1alpha1.DomainAuthenticationToken || dr.Spec.BodyEncryption != nil {
 		if dr.Spec.TokenConfig == nil {
 			return fmt.Errorf("tokenconfig can't be null")

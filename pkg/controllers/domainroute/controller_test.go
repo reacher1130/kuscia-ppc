@@ -57,6 +57,24 @@ func createCrtString(t *testing.T) string {
 	return base64.StdEncoding.EncodeToString(testCrt)
 }
 
+func TestBFIADestinationReadinessTokenDoesNotExpire(t *testing.T) {
+	dr := initDomainRoute("alice", "bob", createCrtString(t), &dv1.Gateway{})
+	dr.Namespace = "bob"
+	dr.Spec.InterConnProtocol = dv1.InterConnBFIA
+	dr.Spec.TokenConfig.RollingUpdatePeriod = 86400
+	dr.Status.IsDestinationAuthorized = true
+	dr.Status.TokenStatus.Tokens = []dv1.DomainRouteToken{{Token: "bfia-noop", Revision: 1, IsReady: true}}
+	client := kusciafake.NewSimpleClientset(dr)
+	c := NewController(context.Background(), controllers.ControllerConfig{KusciaClient: client}).(*controller)
+	defer c.cancel()
+	defer c.domainRouteWorkqueue.ShutDown()
+	assert.NoError(t, c.kusciaInformerFactory.Kuscia().V1alpha1().DomainRoutes().Informer().GetStore().Add(dr))
+	for i := 0; i < 3; i++ {
+		assert.NoError(t, c.syncHandler(context.Background(), "bob/alice-bob"))
+	}
+	assert.Empty(t, client.Actions(), "BFIA readiness must not trigger token expiry writes")
+}
+
 func Test_controller_with_token(t *testing.T) {
 	logger, _ := zlogwriter.New(nil)
 	nlog.Setup(nlog.SetWriter(logger))
